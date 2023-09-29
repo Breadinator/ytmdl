@@ -15,15 +15,7 @@ pub enum App {
 
 impl Default for App {
     fn default() -> Self {
-        // Self::LinkInput(StateLinkInput::default())
-        Self::LinkInput(StateLinkInput {
-            youtube_link: String::from(
-                r#"https://www.youtube.com/playlist?list=OLAK5uy_mZcxjzRvOZAUa2H6Pf8LVvyLDGeBSdmJQ"#,
-            ),
-            discogs_link: String::from(
-                r#"https://www.discogs.com/release/27651927-Odd-Eye-Circle-Version-Up"#,
-            ),
-        })
+        Self::LinkInput(StateLinkInput::default())
     }
 }
 

@@ -21,18 +21,20 @@ pub struct YoutubeVideo {
     pub full_title: Option<String>,
     pub thumbnail: String,
     pub thumbnails: Vec<YoutubeThumbnail>,
-    pub description: String,
+    pub description: Option<String>,
     pub channel_id: String,
     pub channel_url: String,
-    pub duration: i32,
-    pub duration_string: String,
+    pub duration: Option<i32>,
+    pub duration_string: Option<String>,
+    #[serde(default)]
     pub categories: Vec<String>,
+    #[serde(default)]
     pub tags: Vec<String>,
     pub subtitles: Value, // seems to be a hashmap of some kind, probably lang or timestamp as keys
     pub album: String,
     pub artist: String,
     pub track: String,
-    pub release_year: i32,
+    pub release_year: Option<i32>,
     pub release_date: Option<Value>,
 }
 
@@ -85,12 +87,16 @@ mod tests {
         assert_eq!(output.len(), 6);
         for (i, track) in output.into_iter().enumerate() {
             assert_eq!(track.title, expected_titles[i]);
-            assert_eq!(track.duration, expected_durations[i]);
-            assert_eq!(track.duration_string.as_str(), expected_duration_strings[i]);
-            assert_eq!(track.release_year, 2023);
+            assert_eq!(track.duration.unwrap(), expected_durations[i]);
+            assert_eq!(
+                track.duration_string.unwrap().as_str(),
+                expected_duration_strings[i]
+            );
+            assert_eq!(track.release_year.unwrap(), 2023);
             assert_eq!(track.categories, vec![String::from("Music")]);
             assert!(track
                 .description
+                .unwrap()
                 .starts_with("Provided to YouTube by Kakao Entertainment"));
             assert!(track.thumbnail.starts_with("https://i.ytimg.com/vi"));
         }

@@ -31,7 +31,7 @@ pub struct DiscogsAlbumData {
     #[serde(rename = "musicReleaseFormat")]
     pub music_release_format: String,
     pub genre: Vec<String>,
-    pub description: String,
+    pub description: Option<String>,
     #[serde(rename = "datePublished")]
     pub date_published: i32,
     #[serde(rename = "catalogNumber")]
@@ -166,7 +166,7 @@ mod tests {
             &[String::from("Electronic"), String::from("Pop")]
         );
         assert_eq!(
-            album.album_data.description.as_str(),
+            album.album_data.description.unwrap().as_str(),
             "Album title stylized as &amp;quot;ODD EYE CIRCLE &amp;lt;Version Up&amp;gt;.&amp;quot;" // idk what this escaping is lol
         );
         assert_eq!(album.album_data.date_published, 2023);
