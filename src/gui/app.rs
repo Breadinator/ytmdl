@@ -1,5 +1,6 @@
 use super::{
     message::Message, view_link_input::StateLinkInput, view_modifying_data::StateModifyingData,
+    ModifyDataInputChange,
 };
 use crate::scraping::scrape_discogs;
 use iced::{Application, Command, Element, Theme};
@@ -10,13 +11,19 @@ pub enum App {
     LinkInput(StateLinkInput),
     /// Page that lets a user modify the scraped data to fix errors
     ModifyingData(StateModifyingData),
-    /// Loading screen while downloading the various files and adding the metadata
-    Downloading,
 }
 
 impl Default for App {
     fn default() -> Self {
-        Self::LinkInput(StateLinkInput::default())
+        // Self::LinkInput(StateLinkInput::default())
+        Self::LinkInput(StateLinkInput {
+            youtube_link: String::from(
+                r#"https://www.youtube.com/playlist?list=OLAK5uy_mZcxjzRvOZAUa2H6Pf8LVvyLDGeBSdmJQ"#,
+            ),
+            discogs_link: String::from(
+                r#"https://www.discogs.com/release/27651927-Odd-Eye-Circle-Version-Up"#,
+            ),
+        })
     }
 }
 
@@ -39,16 +46,58 @@ impl Application for App {
             Message::YoutubeLinkInputChanged(new_text) => {
                 if let Self::LinkInput(state) = self {
                     state.youtube_link = new_text;
+                } else {
+                    log::warn!(
+                        "Received `Message::YoutubeLinkInputChanged` when not in LinkInput state"
+                    );
                 }
             }
             Message::DiscogsLinkInputChanged(new_text) => {
                 if let Self::LinkInput(state) = self {
                     state.discogs_link = new_text;
+                } else {
+                    log::warn!(
+                        "Received `Message::DiscogsLinkInputChanged` when not in LinkInput state"
+                    );
                 }
             }
-            Message::SubmitLinks { youtube, discogs } => {
-                if let Ok(scraped_discogs) = scrape_discogs(discogs.as_str()) {
+            Message::SubmitLinks { youtube, discogs } => match scrape_discogs(discogs.as_str()) {
+                Ok(scraped_discogs) => {
                     *self = Self::ModifyingData(StateModifyingData::new(youtube, &scraped_discogs));
+                }
+                Err(err) => log::error!("{err}"),
+            },
+            Message::ModifyDataInputChanged(change) => {
+                if let App::ModifyingData(data) = self {
+                    match change {
+                        ModifyDataInputChange::AlbumName(s) => data.album_data.name = s,
+                        ModifyDataInputChange::Artist(s) => data.album_data.artist = s,
+                        ModifyDataInputChange::Label(s) => data.album_data.label = s,
+                        ModifyDataInputChange::Genre(s) => data.album_data.genre = s,
+                        ModifyDataInputChange::Style(s) => data.album_data.style = s,
+                        ModifyDataInputChange::Year(s) => {
+                            if let Ok(y) = s.parse() {
+                                data.album_data.year = y;
+                            }
+                        }
+                        ModifyDataInputChange::Tracks { index, value } => {
+                            data.track_data[index].name = value;
+                        }
+                    }
+                } else {
+                    log::warn!(
+                        "Received `Message::ModifyDataInputChanged` when not in ModifyingData state"
+                    );
+                }
+            }
+            Message::Download => {
+                if let App::ModifyingData(state) = self {
+                    if let Err(err) = crate::download(state) {
+                        log::error!("{err}");
+                    }
+                    *self = Self::LinkInput(StateLinkInput::default());
+                } else {
+                    log::warn!("Received `Message::Download` when not in ModifyingData state");
                 }
             }
         }
@@ -60,13 +109,6 @@ impl Application for App {
         match self {
             Self::LinkInput(state) => Self::view_link_input(state),
             Self::ModifyingData(state) => Self::view_modifying_data(state),
-            Self::Downloading => Self::view_downloading(),
         }
-    }
-}
-
-impl App {
-    fn view_downloading<'a>() -> Element<'a, Message> {
-        todo!()
     }
 }

@@ -3,7 +3,7 @@ use crate::parsing::{consume, consume_mutually_exclusive};
 #[must_use]
 pub fn validate(url: impl AsRef<str>) -> bool {
     match parse_id_from_url(url.as_ref()) {
-        Some(id) => todo!(),
+        Some(_id) => todo!(),
         None => false,
     }
 }
