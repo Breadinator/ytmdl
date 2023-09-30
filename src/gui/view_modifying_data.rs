@@ -5,7 +5,7 @@ use iced::{
     Element, Length,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct StateModifyingData {
     pub youtube_url: String,
     pub album_data: AlbumData,

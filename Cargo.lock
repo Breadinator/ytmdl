@@ -3807,6 +3807,7 @@ checksum = "c94451ac9513335b5e23d7a8a2b61a7102398b8cca5160829d313e84c9d98be1"
 name = "ytmdl"
 version = "0.1.0"
 dependencies = [
+ "bytes",
  "dirs",
  "env_logger",
  "iced",
