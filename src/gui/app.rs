@@ -84,7 +84,7 @@ impl Application for App {
             }
             Message::Download => {
                 if let App::ModifyingData(state) = self {
-                    if let Err(err) = crate::download(state) {
+                    if let Err(err) = crate::download_album(state) {
                         log::error!("{err}");
                     }
                     *self = Self::LinkInput(StateLinkInput::default());

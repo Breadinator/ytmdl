@@ -1,7 +1,8 @@
 #![allow(clippy::module_name_repetitions)]
 
 use crate::{
-    gui::view_modifying_data::StateModifyingData, scraping::scrape_youtube,
+    gui::view_modifying_data::StateModifyingData,
+    scraping::{scrape_playlist, scrape_youtube},
     utils::sanitize_file_name,
 };
 use id3::{
@@ -9,6 +10,7 @@ use id3::{
     Tag, TagLike,
 };
 use std::{
+    borrow::Cow,
     env, fs,
     path::{Path, PathBuf},
     process::Command,
@@ -16,6 +18,7 @@ use std::{
 };
 use tempdir::TempDir;
 use thiserror::Error;
+use url::Url;
 
 #[derive(Debug, Error)]
 pub enum DownloadError {
@@ -33,21 +36,58 @@ pub enum DownloadError {
     Id3Error(#[from] id3::Error),
 }
 
+fn get_ids(url: &str) -> Result<Vec<String>, DownloadError> {
+    fn music_to_www(url: &str) -> Cow<str> {
+        if let Ok(mut parsed_url) = Url::parse(url) {
+            if parsed_url.host_str() == Some("music") && parsed_url.set_host(Some("www")).is_ok() {
+                Cow::Owned(parsed_url.to_string())
+            } else {
+                Cow::Borrowed(url)
+            }
+        } else {
+            Cow::Borrowed(url)
+        }
+    }
+    let url = music_to_www(url);
+
+    log::debug!("scraping album data from YouTube...");
+    match scrape_playlist(&url) {
+        Ok(scraped_playlist) => {
+            let mut out = Vec::with_capacity(scraped_playlist.len());
+            let mut ok = true;
+            for track in scraped_playlist {
+                if let Some(id) = track.id {
+                    out.push(id);
+                } else {
+                    ok = false;
+                    break;
+                }
+            }
+            if ok {
+                return Ok(out);
+            }
+        }
+        Err(err) => log::warn!("{err}"),
+    }
+
+    log::warn!("couldn't manually scrape the playlist, falling back to yt-dlp");
+    Ok(scrape_youtube(&url)?.into_iter().map(|t| t.id).collect())
+}
+
 #[allow(
     clippy::missing_errors_doc,
     clippy::never_loop,
-    clippy::missing_panics_doc,
     clippy::too_many_lines,
     clippy::cast_possible_truncation
 )]
-pub fn download(state: &StateModifyingData) -> Result<(), DownloadError> {
+pub fn download_album(state: &StateModifyingData) -> Result<(), DownloadError> {
     // this could be async
     // could also not be a gigafunc
 
     let started = Instant::now();
 
-    log::debug!("Scraping album data from YouTube...");
-    let scraped_youtube = scrape_youtube(state.youtube_url.as_str())?;
+    let ids = get_ids(state.youtube_url.as_str())?;
+    // let scraped_youtube = scrape_youtube(state.youtube_url.as_str())?;
 
     let img_req = reqwest::blocking::get(&state.album_data.image);
     let mut img = None;
@@ -75,10 +115,10 @@ pub fn download(state: &StateModifyingData) -> Result<(), DownloadError> {
     );
     fs::create_dir_all(out_dir.as_path())?;
 
-    let tracks = scraped_youtube.len();
-    for (i, video) in scraped_youtube.into_iter().enumerate() {
+    let tracks = ids.len();
+    for (i, id) in ids.into_iter().enumerate() {
         // download from youtube
-        log::info!(r#"Downloading {}/{}, id "{}"..."#, i + 1, tracks, video.id);
+        log::info!(r#"Downloading {}/{}, id "{}"..."#, i + 1, tracks, id);
         let output = Command::new("yt-dlp")
             .args([
                 "--audio-quality",
@@ -88,17 +128,17 @@ pub fn download(state: &StateModifyingData) -> Result<(), DownloadError> {
                 tmp_dir.path().to_str().ok_or(DownloadError::TmpDirError)?,
                 "-o",
                 format!("{i}.%(ext)s").as_str(),
-                format!("https://youtu.be/{}", video.id).as_str(),
+                format!("https://youtu.be/{id}").as_str(),
             ])
             .output()?;
         if !output.status.success() {
             log::error!("{}", String::from_utf8_lossy(&output.stderr));
-            return Err(DownloadError::YtdlpError(video.id));
+            return Err(DownloadError::YtdlpError(id));
         }
         let path = String::from_utf8_lossy(&output.stdout);
         let path = path.trim_end();
 
-        log::debug!("Downloading {} to {}", video.id, path);
+        log::debug!("Downloading {} to {}", id, path);
         let output = Command::new("yt-dlp")
             .args([
                 "--audio-quality",
@@ -107,12 +147,12 @@ pub fn download(state: &StateModifyingData) -> Result<(), DownloadError> {
                 tmp_dir.path().to_str().ok_or(DownloadError::TmpDirError)?,
                 "-o",
                 format!("{i}.%(ext)s").as_str(),
-                format!("https://youtu.be/{}", video.id).as_str(),
+                format!("https://youtu.be/{id}").as_str(),
             ])
             .output()?;
         if !output.status.success() {
             log::error!("{}", String::from_utf8_lossy(&output.stderr));
-            return Err(DownloadError::YtdlpError(video.id));
+            return Err(DownloadError::YtdlpError(id));
         }
 
         // convert from webm or whatever to mp3
@@ -132,7 +172,7 @@ pub fn download(state: &StateModifyingData) -> Result<(), DownloadError> {
                 .output()?;
             if !output.status.success() {
                 log::error!("{}", String::from_utf8_lossy(&output.stderr));
-                return Err(DownloadError::FfmpegError(video.id));
+                return Err(DownloadError::FfmpegError(id));
             }
         }
 

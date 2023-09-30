@@ -1,6 +1,6 @@
 #![allow(clippy::module_name_repetitions)]
 
-use reqwest::blocking::{Client, Response};
+use crate::utils::download;
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use thiserror::Error;
@@ -93,12 +93,6 @@ pub enum DiscogsScrapeError {
     CouldntFindReleaseSchema,
     #[error("{0}")]
     SerdeError(#[from] serde_json::Error),
-}
-
-fn download(url: &str) -> Result<Response, reqwest::Error> {
-    let client = Client::builder().user_agent("Chrome/116.0.0.0").build()?; // lol
-    let discogs_resp = client.get(url).send()?;
-    Ok(discogs_resp)
 }
 
 #[allow(clippy::missing_errors_doc)]

@@ -1,5 +1,7 @@
 use std::{borrow::Cow, ffi::OsStr};
 
+use reqwest::blocking::{Client, Response};
+
 /// If all given results are `Ok`, returns `Ok(vec![ok_values])`,
 /// else it returns the first error in the `Vec`
 #[allow(clippy::missing_errors_doc)]
@@ -25,33 +27,6 @@ fn contains_illegal_chars(path: impl AsRef<OsStr>) -> bool {
         .contains(|c| ILLEGAL_CHARS.contains(&c))
 }
 
-/*#[must_use]
-pub fn sanitize_path(path: &Path) -> Cow<Path> {
-    if contains_illegal_chars(path) {
-        let mut out = PathBuf::with_capacity(path.iter().count());
-
-        for part in path {
-            if contains_illegal_chars(part) {
-                if let Some(part) = part.to_str() {
-                    let mut s = String::with_capacity(part.len());
-                    for ch in part.chars() {
-                        if !ILLEGAL_CHARS.contains(&ch) {
-                            s.push(ch);
-                        }
-                    }
-                    out.push(s);
-                }
-            } else {
-                out.push(part);
-            }
-        }
-
-        Cow::Owned(out)
-    } else {
-        Cow::Borrowed(path)
-    }
-}*/
-
 #[must_use]
 pub fn sanitize_file_name(name: &str) -> Cow<str> {
     if contains_illegal_chars(name) {
@@ -65,4 +40,11 @@ pub fn sanitize_file_name(name: &str) -> Cow<str> {
     } else {
         Cow::Borrowed(name)
     }
+}
+
+/// Makes a get request via [reqwest] using a fake user agent
+#[allow(clippy::missing_errors_doc)]
+pub fn download(url: &str) -> Result<Response, reqwest::Error> {
+    let client = Client::builder().user_agent("Chrome/116.0.0.0").build()?; // lol
+    client.get(url).send()
 }
