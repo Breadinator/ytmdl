@@ -48,3 +48,32 @@ pub fn download(url: &str) -> Result<Response, reqwest::Error> {
     let client = Client::builder().user_agent("Chrome/116.0.0.0").build()?; // lol
     client.get(url).send()
 }
+
+pub struct SendableRawPointer<T: ?Sized>(*const T);
+unsafe impl<T: ?Sized> Send for SendableRawPointer<T> {}
+impl<T: ?Sized> Copy for SendableRawPointer<T> {}
+
+impl<T: ?Sized> SendableRawPointer<T> {
+    #[must_use]
+    pub fn new(value: &T) -> Self {
+        Self(value)
+    }
+
+    #[allow(clippy::missing_panics_doc, clippy::missing_safety_doc)]
+    #[must_use]
+    pub unsafe fn get(&self) -> &T {
+        self.0.as_ref().expect("invalid pointer")
+    }
+}
+
+impl<T: ?Sized> From<&T> for SendableRawPointer<T> {
+    fn from(value: &T) -> Self {
+        Self::new(value)
+    }
+}
+
+impl<T: ?Sized> Clone for SendableRawPointer<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}

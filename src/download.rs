@@ -3,7 +3,7 @@
 use crate::{
     gui::view_modifying_data::StateModifyingData,
     scraping::{scrape_playlist, scrape_youtube},
-    utils::sanitize_file_name,
+    utils::{sanitize_file_name, SendableRawPointer},
 };
 use bytes::Bytes;
 use id3::{
@@ -15,7 +15,6 @@ use std::{
     env, fs,
     path::{Path, PathBuf},
     process::Command,
-    sync::Arc,
     thread::{self, JoinHandle},
     time::Instant,
 };
@@ -46,19 +45,18 @@ pub fn download_album(state: &StateModifyingData) -> Result<(), DownloadError> {
     let started = Instant::now();
 
     let (tmp_dir, out_dir) = where_dirs()?;
+    let tmp_dir =
+        SendableRawPointer::new(tmp_dir.path().to_str().ok_or(DownloadError::TmpDirError)?);
+    let out_dir = SendableRawPointer::new(out_dir.as_path());
     let ids = get_ids(state.youtube_url.as_str())?;
     let num_tracks = ids.len();
     let (img, content_type) = get_image(state);
-    let state = Arc::new(state.clone()); // maybe Box::leak it
+    let img = img.as_deref().map(SendableRawPointer::new);
+    let content_type = content_type.as_deref().map(SendableRawPointer::new);
+    let state = state.into();
 
     let mut handles: Vec<JoinHandle<Result<(), DownloadError>>> = Vec::with_capacity(num_tracks);
     for (i, id) in ids.into_iter().enumerate() {
-        let state = state.clone();
-        let tmp_dir = tmp_dir.path().to_path_buf();
-        let out_dir = out_dir.clone();
-        let img = img.clone();
-        let content_type = content_type.clone();
-
         handles.push(thread::spawn(move || {
             handle_track(
                 state,
@@ -91,28 +89,34 @@ pub fn download_album(state: &StateModifyingData) -> Result<(), DownloadError> {
 
 #[allow(clippy::too_many_arguments, clippy::needless_pass_by_value)]
 fn handle_track(
-    state: Arc<StateModifyingData>,
+    state: SendableRawPointer<StateModifyingData>,
     i: usize,
     num_tracks: usize,
     id: &str,
-    tmp_dir: PathBuf,
-    out_dir: PathBuf,
-    img: Option<Bytes>,
-    content_type: Option<String>,
+    tmp_dir: SendableRawPointer<str>,
+    out_dir: SendableRawPointer<Path>,
+    img: Option<SendableRawPointer<[u8]>>,
+    content_type: Option<SendableRawPointer<str>>,
 ) -> Result<(), DownloadError> {
+    let state = unsafe { state.get() };
+    let tmp_dir = unsafe { tmp_dir.get() };
+    let out_dir = unsafe { out_dir.get() };
+    let img = unsafe { img.as_ref().map(|i| i.get()) };
+    let content_type = unsafe { content_type.as_ref().map(|ct| ct.get()) };
+
     // download from youtube
-    let path = generate_path_name(i, num_tracks, id, &tmp_dir.to_string_lossy())?;
-    dl_from_yt(i, id, &path, &tmp_dir.to_string_lossy())?;
+    let path = generate_path_name(i, num_tracks, id, tmp_dir)?;
+    dl_from_yt(i, id, &path, tmp_dir)?;
 
     // convert from webm or whatever to mp3
     let tmp_file_path = convert_to_mp3(&path, id)?;
 
     // set id3 tags
-    let tag = generate_tags(&state, i, img.as_deref(), content_type.as_deref());
+    let tag = generate_tags(state, i, img, content_type);
     tag.write_to_path(tmp_file_path.as_path(), id3::Version::Id3v24)?;
 
     // copy to out dir
-    move_to_out_dir(i, &state, &tmp_file_path, &out_dir)
+    move_to_out_dir(i, state, &tmp_file_path, out_dir)
 }
 
 fn get_ids(url: &str) -> Result<Vec<String>, DownloadError> {
