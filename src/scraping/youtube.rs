@@ -45,7 +45,11 @@ pub struct YoutubeThumbnail {
     pub id: String,
 }
 
-#[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+/// Uses the yt-dlp CLI tool to scrape information about a Youtube video
+///
+/// # Errors
+/// - If the yt-dlp command fails
+/// - If it can't parse the returned JSON
 pub fn scrape_youtube(url: &str) -> Result<Vec<YoutubeVideo>, ScrapeYoutubeError> {
     let output = Command::new("yt-dlp")
         .args(["--skip-download", "--dump-json", url])

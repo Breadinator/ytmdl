@@ -49,6 +49,7 @@ pub fn download(url: &str) -> Result<Response, reqwest::Error> {
     client.get(url).send()
 }
 
+/// Wrapper around a `*const T` that allows it to be sent across threads.
 pub struct SendableRawPointer<T: ?Sized>(*const T);
 unsafe impl<T: ?Sized> Send for SendableRawPointer<T> {}
 impl<T: ?Sized> Copy for SendableRawPointer<T> {}
@@ -59,7 +60,14 @@ impl<T: ?Sized> SendableRawPointer<T> {
         Self(value)
     }
 
-    #[allow(clippy::missing_panics_doc, clippy::missing_safety_doc)]
+    /// Reconstructs the reference from the raw pointer.
+    ///
+    /// # Panics
+    /// Panics if it points to uninitialized memory
+    ///
+    /// # Safety
+    /// Ensure that the pointer still points to valid memory.
+    /// Neither this method nor this type makes any safety checks or guarantees
     #[must_use]
     pub unsafe fn get(&self) -> &T {
         self.0.as_ref().expect("invalid pointer")

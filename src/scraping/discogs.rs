@@ -95,7 +95,13 @@ pub enum DiscogsScrapeError {
     SerdeError(#[from] serde_json::Error),
 }
 
-#[allow(clippy::missing_errors_doc)]
+/// Scrapes Discogs for various album data
+///
+/// # Errors
+/// - If it can't download the page at the given URL
+/// - If any of the various selectors fail to be compiled
+/// - If there was no JSON script tag with the id `release_schema`
+/// - If the JSON couldn't be parsed
 pub fn scrape_discogs(url: &str) -> Result<DiscogsAlbum, DiscogsScrapeError> {
     let resp = download(url)?;
     let document = Html::parse_document(resp.text()?.as_str());

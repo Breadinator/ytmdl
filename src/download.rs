@@ -40,7 +40,16 @@ pub enum DownloadError {
     MultipleErrors(Vec<Self>),
 }
 
-#[allow(clippy::missing_errors_doc)]
+/// Actually downloads all the tracks, converts them to mp3 and applies ID3 tags
+///
+/// # Errors
+/// - If it can't determine the temp dir or output dir, or if either are invalid
+/// - If [`get_ids`] fails
+/// - If it can't generate the output file name of a track (using the yt-dlp CLI tool)
+/// - If the yt-dlp CLI tool fails to download a track
+/// - If ffmpeg fails to convert the file to an mp3
+/// - If the ID3 tags fail being written to the file
+/// - If the file can't be moved from the temp directory to the actual output
 pub fn download_album(state: &StateModifyingData) -> Result<(), DownloadError> {
     let started = Instant::now();
 

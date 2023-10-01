@@ -66,7 +66,12 @@ fn extract_playlist_item(extracted_json: &Value) -> PlaylistItem {
     }
 }
 
-#[allow(clippy::missing_errors_doc)]
+/// Attempts to scrape out playlist information from the given link.
+///
+/// # Errors
+/// - If it can't actually download the request (via [reqwest])
+/// - If it can't find a valid script tag (whose contents should be `var ytInitialData = <...>;` where `<...>` is valid JSON)
+/// - If it can't compile the "script" selector (should never happen)
 pub fn scrape_playlist(url: &str) -> Result<Vec<PlaylistItem>, ScrapeYoutubePlaylist> {
     let resp = download(url)?.text()?;
     let doc = Html::parse_document(resp.as_str());
