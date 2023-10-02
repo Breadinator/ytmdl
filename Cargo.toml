@@ -1,12 +1,13 @@
 [package]
 name = "ytmdl"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 
 [dependencies]
 log = "0.4.20"
 env_logger = "0.10.0"
 itertools = "0.11.0"
+rayon = "1.8.0"
 once_cell = "1.18.0"
 thiserror = "1.0.48"
 tempdir = "0.3.7"

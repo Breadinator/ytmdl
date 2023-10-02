@@ -1,5 +1,3 @@
-#![allow(clippy::module_name_repetitions)]
-
 use crate::{
     gui::view_modifying_data::StateModifyingData,
     scraping::{scrape_playlist, scrape_youtube},
@@ -10,12 +8,12 @@ use id3::{
     frame::{Picture, PictureType},
     Tag, TagLike,
 };
+use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::{
     borrow::Cow,
     env, fs,
     path::{Path, PathBuf},
     process::Command,
-    thread::{self, JoinHandle},
     time::Instant,
 };
 use tempdir::TempDir;
@@ -64,28 +62,26 @@ pub fn download_album(state: &StateModifyingData) -> Result<(), DownloadError> {
     let content_type = content_type.as_deref().map(SendableRawPointer::new);
     let state = state.into();
 
-    let mut handles: Vec<JoinHandle<Result<(), DownloadError>>> = Vec::with_capacity(num_tracks);
-    for (i, id) in ids.into_iter().enumerate() {
-        handles.push(thread::spawn(move || {
-            handle_track(
-                state,
-                i,
-                num_tracks,
-                &id,
-                tmp_dir,
-                out_dir,
-                img,
-                content_type,
-            )
-        }));
-    }
-
-    let mut errors = Vec::with_capacity(handles.len());
-    for handle in handles {
-        if let Ok(Err(err)) = handle.join() {
-            errors.push(err);
-        }
-    }
+    let errors: Vec<DownloadError> = crate::POOL.install(|| {
+        ids.into_iter()
+            .enumerate()
+            .collect::<Vec<_>>()
+            .into_par_iter()
+            .filter_map(|(i, id)| {
+                handle_track(
+                    state,
+                    i,
+                    num_tracks,
+                    id,
+                    tmp_dir,
+                    out_dir,
+                    img,
+                    content_type,
+                )
+                .err()
+            })
+            .collect()
+    });
 
     log::info!("Finished in {}s", started.elapsed().as_secs());
 
@@ -101,7 +97,7 @@ fn handle_track(
     state: SendableRawPointer<StateModifyingData>,
     i: usize,
     num_tracks: usize,
-    id: &str,
+    id: String,
     tmp_dir: SendableRawPointer<str>,
     out_dir: SendableRawPointer<Path>,
     img: Option<SendableRawPointer<[u8]>>,
@@ -114,11 +110,11 @@ fn handle_track(
     let content_type = unsafe { content_type.as_ref().map(|ct| ct.get()) };
 
     // download from youtube
-    let path = generate_path_name(i, num_tracks, id, tmp_dir)?;
-    dl_from_yt(i, id, &path, tmp_dir)?;
+    let path = generate_path_name(i, num_tracks, &id, tmp_dir)?;
+    dl_from_yt(i, &id, &path, tmp_dir)?;
 
     // convert from webm or whatever to mp3
-    let tmp_file_path = convert_to_mp3(&path, id)?;
+    let tmp_file_path = convert_to_mp3(&path, &id)?;
 
     // set id3 tags
     let tag = generate_tags(state, i, img, content_type);

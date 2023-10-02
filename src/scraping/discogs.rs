@@ -1,5 +1,3 @@
-#![allow(clippy::module_name_repetitions)]
-
 use crate::utils::download;
 use scraper::{Html, Selector};
 use serde::Deserialize;

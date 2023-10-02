@@ -1,5 +1,3 @@
-#![allow(clippy::module_name_repetitions)]
-
 use crate::utils::reduce_vec_of_results;
 use serde::Deserialize;
 use serde_json::Value;

@@ -52,6 +52,7 @@ pub fn download(url: &str) -> Result<Response, reqwest::Error> {
 /// Wrapper around a `*const T` that allows it to be sent across threads.
 pub struct SendableRawPointer<T: ?Sized>(*const T);
 unsafe impl<T: ?Sized> Send for SendableRawPointer<T> {}
+unsafe impl<T: ?Sized> Sync for SendableRawPointer<T> {}
 impl<T: ?Sized> Copy for SendableRawPointer<T> {}
 
 impl<T: ?Sized> SendableRawPointer<T> {
