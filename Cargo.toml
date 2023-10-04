@@ -3,6 +3,8 @@ name = "ytmdl"
 version = "0.2.2"
 edition = "2021"
 repository = "https://github.com/Breadinator/ytmdl"
+description = "Downloads albums from YouTube and automatically fills them with metadata from Discogs"
+license-file = "LICENSE"
 
 [dependencies]
 log = "0.4.20"
