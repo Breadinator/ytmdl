@@ -1,5 +1,7 @@
+use std::borrow::Cow;
+
 use crate::utils::download;
-use scraper::{Html, Selector};
+use scraper::{html::Select, Html, Selector};
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -91,6 +93,40 @@ pub enum DiscogsScrapeError {
     CouldntFindReleaseSchema,
     #[error("{0}")]
     SerdeError(#[from] serde_json::Error),
+    #[error("couldn't find release page from master page")]
+    CouldntFindReleasePage,
+}
+
+/// Scrapes a Discogs master page to find a release
+fn release_from_master(url: &str) -> Result<Cow<str>, DiscogsScrapeError> {
+    fn first_release_in_select(selection: Select<'_, '_>) -> Option<String> {
+        for s in selection {
+            if let Some(link) = s.value().attr("href") {
+                if link.starts_with("/release/") {
+                    return Some(format!("https://www.discogs.com{link}"));
+                }
+            }
+        }
+
+        None
+    }
+
+    if url.contains("discogs.com/master") {
+        let resp = download(url)?;
+        let document = Html::parse_document(resp.text()?.as_str());
+
+        let selector_versions_table_link =
+            Selector::parse(r#"section#versions table a.link_1ctor"#)
+                .map_err(|_| DiscogsScrapeError::SelectorError)?;
+
+        let links = document.select(&selector_versions_table_link);
+        let link = first_release_in_select(links);
+
+        link.map(Cow::Owned)
+            .ok_or(DiscogsScrapeError::CouldntFindReleasePage)
+    } else {
+        Ok(Cow::Borrowed(url))
+    }
 }
 
 /// Scrapes Discogs for various album data
@@ -101,7 +137,8 @@ pub enum DiscogsScrapeError {
 /// - If there was no JSON script tag with the id `release_schema`
 /// - If the JSON couldn't be parsed
 pub fn scrape_discogs(url: &str) -> Result<DiscogsAlbum, DiscogsScrapeError> {
-    let resp = download(url)?;
+    let url = release_from_master(url)?;
+    let resp = download(&url)?;
     let document = Html::parse_document(resp.text()?.as_str());
 
     // these could probably be lazy statics/once cells but not being called enough to matter
@@ -152,7 +189,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn discogs_basic() {
+    fn release_basic() {
         let album =
             scrape_discogs("https://www.discogs.com/release/27651927-Odd-Eye-Circle-Version-Up")
                 .unwrap();
@@ -194,5 +231,19 @@ mod tests {
                 Some(expected_durations[i])
             );
         }
+    }
+
+    #[test]
+    fn master_basic() {
+        let master = r#"https://www.discogs.com/master/3166419-Odd-Eye-Circle-Version-Up"#;
+        let release = release_from_master(master).unwrap();
+        assert_eq!(
+            &release,
+            r#"https://www.discogs.com/release/27651927-Odd-Eye-Circle-Version-Up"#
+        );
+
+        let master = r#"https://www.discogs.com/release/27651927-Odd-Eye-Circle-Version-Up"#;
+        let release = release_from_master(master).unwrap();
+        assert_eq!(&release, master);
     }
 }
