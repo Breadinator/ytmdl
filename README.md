@@ -1,7 +1,7 @@
 # ytmdl
 [![Crates.io](https://img.shields.io/crates/v/ytmdl)](https://crates.io/crates/ytmdl)
 [![docs.rs](https://img.shields.io/docsrs/ytmdl)](https://docs.rs/ytmdl)
-[![GitHub license](https://img.shields.io/github/license/Breadinator/ytmdl)]([https://github.com/Breadinator/ytmdl/LICENSE](https://github.com/Breadinator/ytmdl/blob/main/LICENSE))
+[![GitHub license](https://img.shields.io/github/license/Breadinator/ytmdl)](https://github.com/Breadinator/ytmdl/blob/main/LICENSE)
 
 ## Usage
 Just run the executable and it should bring up the GUI. I recommend running it from a console for logging.
