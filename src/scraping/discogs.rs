@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use crate::utils::{
     download,
-    selectors::{RELEASE_SCHEMA, SPAN, TR, TRACKLIST, VERSIONS_TABLE_LINK},
+    selectors::{RELEASE_SCHEMA, SPAN, TD, TRACKLIST, VERSIONS_TABLE_LINK},
 };
 use scraper::{html::Select, Html};
 use serde::Deserialize;
@@ -154,19 +154,15 @@ fn parse_release_schema(document: &Html) -> Result<DiscogsAlbumData, DiscogsScra
 }
 
 fn parse_tracks(document: &Html) -> Vec<Option<DiscogsTrack>> {
-    let tracklist = document.select(&TRACKLIST);
-    tracklist
+    document
+        .select(&TRACKLIST)
         .map(|track| {
-            let tds: Vec<_> = track.select(&TR).collect();
+            let tds: Vec<_> = track.select(&TD).collect();
             if tds.len() >= 4 {
-                let number = tds[0].inner_html().parse().ok()?;
-                let title = tds[2].select(&SPAN).next()?.inner_html();
-                let duration = tds[3].select(&SPAN).next()?.inner_html();
-
                 Some(DiscogsTrack {
-                    number,
-                    title,
-                    duration,
+                    number: tds[0].inner_html().parse().ok()?,
+                    title: tds[2].select(&SPAN).next()?.inner_html(),
+                    duration: tds[3].select(&SPAN).next()?.inner_html(),
                 })
             } else {
                 None

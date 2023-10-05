@@ -99,7 +99,7 @@ pub mod selectors {
 
     selector!(RELEASE_SCHEMA, "script#release_schema");
     selector!(TRACKLIST, "section#release-tracklist tr");
-    selector!(TR, "tr");
+    selector!(TD, "td");
     selector!(SPAN, "span");
     selector!(VERSIONS_TABLE_LINK, "section#versions table a.link_1ctor");
     selector!(SCRIPT, "script");
