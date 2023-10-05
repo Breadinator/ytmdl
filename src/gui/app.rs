@@ -66,7 +66,6 @@ impl Application for App {
                         ModifyDataInputChange::Artist(s) => data.album_data.artist = s,
                         ModifyDataInputChange::Label(s) => data.album_data.label = s,
                         ModifyDataInputChange::Genre(s) => data.album_data.genre = s,
-                        ModifyDataInputChange::Style(s) => data.album_data.style = s,
                         ModifyDataInputChange::Year(s) => {
                             if let Ok(y) = s.parse() {
                                 data.album_data.year = y;

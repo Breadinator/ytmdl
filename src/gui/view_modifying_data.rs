@@ -18,7 +18,6 @@ pub struct AlbumData {
     pub artist: String,
     pub label: String,
     pub genre: String,
-    pub style: String,
     pub year: i32,
     pub image: String,
 }
@@ -62,7 +61,6 @@ impl From<&DiscogsAlbumData> for AlbumData {
                         acc + "; " + &genre
                     }
                 }),
-            style: String::default(), // todo
             year: discogs_album_data.date_published,
             image: discogs_album_data.image.clone(),
         }

@@ -86,3 +86,21 @@ impl<T: ?Sized> Clone for SendableRawPointer<T> {
         *self
     }
 }
+
+pub mod selectors {
+    use once_cell::sync::Lazy;
+    use scraper::Selector;
+
+    macro_rules! selector {
+        ($name:ident, $sel:literal) => {
+            pub static $name: Lazy<Selector> = Lazy::new(|| Selector::parse($sel).unwrap());
+        };
+    }
+
+    selector!(RELEASE_SCHEMA, "script#release_schema");
+    selector!(TRACKLIST, "section#release-tracklist tr");
+    selector!(TR, "tr");
+    selector!(SPAN, "span");
+    selector!(VERSIONS_TABLE_LINK, "section#versions table a.link_1ctor");
+    selector!(SCRIPT, "script");
+}

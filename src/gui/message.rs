@@ -16,7 +16,6 @@ pub enum ModifyDataInputChange {
     Artist(String),
     Label(String),
     Genre(String),
-    Style(String),
     Year(String),
     Tracks { index: usize, value: String },
 }

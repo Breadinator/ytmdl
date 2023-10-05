@@ -1,5 +1,5 @@
-use crate::utils::download;
-use scraper::{Html, Selector};
+use crate::utils::{download, selectors::SCRIPT};
+use scraper::Html;
 use serde_json::Value;
 use thiserror::Error;
 
@@ -8,8 +8,6 @@ pub enum ScrapeYoutubePlaylist {
     #[error("{0}")]
     ReqwestError(#[from] reqwest::Error),
     #[error("selector parse error")]
-    SelectorError,
-    #[error("{0}")]
     DeserializeError(#[from] serde_json::Error),
     #[error("missing valid `ytInitialData` script")]
     MissingScript,
@@ -69,14 +67,11 @@ fn extract_playlist_item(extracted_json: &Value) -> PlaylistItem {
 /// # Errors
 /// - If it can't actually download the request (via [reqwest])
 /// - If it can't find a valid script tag (whose contents should be `var ytInitialData = <...>;` where `<...>` is valid JSON)
-/// - If it can't compile the "script" selector (should never happen)
 pub fn scrape_playlist(url: &str) -> Result<Vec<PlaylistItem>, ScrapeYoutubePlaylist> {
     let resp = download(url)?.text()?;
     let doc = Html::parse_document(resp.as_str());
-    let selector_script =
-        Selector::parse("script").map_err(|_| ScrapeYoutubePlaylist::SelectorError)?;
 
-    for script in doc.select(&selector_script) {
+    for script in doc.select(&SCRIPT) {
         let inner = script.inner_html();
 
         if let Some(Ok(json)) = inner

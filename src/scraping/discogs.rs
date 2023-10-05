@@ -1,7 +1,10 @@
 use std::borrow::Cow;
 
-use crate::utils::download;
-use scraper::{html::Select, Html, Selector};
+use crate::utils::{
+    download,
+    selectors::{RELEASE_SCHEMA, SPAN, TR, TRACKLIST, VERSIONS_TABLE_LINK},
+};
+use scraper::{html::Select, Html};
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -87,8 +90,6 @@ pub struct DiscogsLocation {
 pub enum DiscogsScrapeError {
     #[error("{0}")]
     ReqwestError(#[from] reqwest::Error),
-    #[error("invalid selector")]
-    SelectorError,
     #[error("couldn't find release schema script")]
     CouldntFindReleaseSchema,
     #[error("{0}")]
@@ -107,7 +108,6 @@ fn release_from_master(url: &str) -> Result<Cow<str>, DiscogsScrapeError> {
                 }
             }
         }
-
         None
     }
 
@@ -115,14 +115,9 @@ fn release_from_master(url: &str) -> Result<Cow<str>, DiscogsScrapeError> {
         let resp = download(url)?;
         let document = Html::parse_document(resp.text()?.as_str());
 
-        let selector_versions_table_link =
-            Selector::parse(r#"section#versions table a.link_1ctor"#)
-                .map_err(|_| DiscogsScrapeError::SelectorError)?;
-
-        let links = document.select(&selector_versions_table_link);
-        let link = first_release_in_select(links);
-
-        link.map(Cow::Owned)
+        let links = document.select(&VERSIONS_TABLE_LINK);
+        first_release_in_select(links)
+            .map(Cow::Owned)
             .ok_or(DiscogsScrapeError::CouldntFindReleasePage)
     } else {
         Ok(Cow::Borrowed(url))
@@ -133,7 +128,6 @@ fn release_from_master(url: &str) -> Result<Cow<str>, DiscogsScrapeError> {
 ///
 /// # Errors
 /// - If it can't download the page at the given URL
-/// - If any of the various selectors fail to be compiled
 /// - If there was no JSON script tag with the id `release_schema`
 /// - If the JSON couldn't be parsed
 pub fn scrape_discogs(url: &str) -> Result<DiscogsAlbum, DiscogsScrapeError> {
@@ -141,34 +135,33 @@ pub fn scrape_discogs(url: &str) -> Result<DiscogsAlbum, DiscogsScrapeError> {
     let resp = download(&url)?;
     let document = Html::parse_document(resp.text()?.as_str());
 
-    // these could probably be lazy statics/once cells but not being called enough to matter
-    let selector_release_schema = Selector::parse(r#"script#release_schema"#)
-        .map_err(|_| DiscogsScrapeError::SelectorError)?;
-    let selector_tracklist = Selector::parse(r#"section#release-tracklist tr"#)
-        .map_err(|_| DiscogsScrapeError::SelectorError)?;
-    let selector_tr = Selector::parse(r#"td"#).map_err(|_| DiscogsScrapeError::SelectorError)?;
-    let selector_span =
-        Selector::parse(r#"span"#).map_err(|_| DiscogsScrapeError::SelectorError)?;
+    let album_data = parse_release_schema(&document)?;
+    let tracks = parse_tracks(&document);
 
-    // extract album data
-    let album_data: DiscogsAlbumData = serde_json::de::from_str(
+    Ok(DiscogsAlbum { album_data, tracks })
+}
+
+fn parse_release_schema(document: &Html) -> Result<DiscogsAlbumData, DiscogsScrapeError> {
+    serde_json::de::from_str(
         document
-            .select(&selector_release_schema)
+            .select(&RELEASE_SCHEMA)
             .next()
             .ok_or(DiscogsScrapeError::CouldntFindReleaseSchema)?
             .inner_html()
             .as_str(),
-    )?;
+    )
+    .map_err(Into::into)
+}
 
-    // extract tracks
-    let tracklist = document.select(&selector_tracklist);
-    let tracks = tracklist
+fn parse_tracks(document: &Html) -> Vec<Option<DiscogsTrack>> {
+    let tracklist = document.select(&TRACKLIST);
+    tracklist
         .map(|track| {
-            let tds: Vec<_> = track.select(&selector_tr).collect();
+            let tds: Vec<_> = track.select(&TR).collect();
             if tds.len() >= 4 {
                 let number = tds[0].inner_html().parse().ok()?;
-                let title = tds[2].select(&selector_span).next()?.inner_html();
-                let duration = tds[3].select(&selector_span).next()?.inner_html();
+                let title = tds[2].select(&SPAN).next()?.inner_html();
+                let duration = tds[3].select(&SPAN).next()?.inner_html();
 
                 Some(DiscogsTrack {
                     number,
@@ -179,9 +172,7 @@ pub fn scrape_discogs(url: &str) -> Result<DiscogsAlbum, DiscogsScrapeError> {
                 None
             }
         })
-        .collect();
-
-    Ok(DiscogsAlbum { album_data, tracks })
+        .collect()
 }
 
 #[cfg(test)]
