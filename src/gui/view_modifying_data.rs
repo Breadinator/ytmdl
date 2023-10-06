@@ -1,5 +1,10 @@
 use super::{App, Message, ModifyDataInputChange};
-use crate::scraping::{DiscogsAlbum, DiscogsAlbumData};
+use crate::{
+    scraping::{
+        scrape_playlist, DiscogsAlbum, DiscogsAlbumData, PlaylistItem, ScrapeYoutubePlaylistError,
+    },
+    utils::music_to_www,
+};
 use iced::{
     widget::{column, container, scrollable, Button, Column, Rule, TextInput},
     Element, Length,
@@ -12,19 +17,38 @@ pub struct StateModifyingData {
     pub track_data: Vec<TrackData>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct AlbumData {
     pub name: String,
     pub artist: String,
-    pub label: String,
     pub genre: String,
     pub year: i32,
     pub image: String,
 }
 
+impl Default for AlbumData {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            artist: String::new(),
+            genre: String::new(),
+            year: crate::utils::current_year(),
+            image: String::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct TrackData {
     pub name: String,
+}
+
+impl From<PlaylistItem> for TrackData {
+    fn from(value: PlaylistItem) -> Self {
+        Self {
+            name: value.title.unwrap_or_default(),
+        }
+    }
 }
 
 impl From<&DiscogsAlbumData> for AlbumData {
@@ -41,16 +65,6 @@ impl From<&DiscogsAlbumData> for AlbumData {
                     }
                 },
             ),
-            label: discogs_album_data
-                .record_label
-                .iter()
-                .fold(String::new(), |acc, label| {
-                    if acc.is_empty() {
-                        label.name.clone()
-                    } else {
-                        acc + "; " + &label.name
-                    }
-                }),
             genre: discogs_album_data
                 .genre
                 .iter()
@@ -88,6 +102,16 @@ impl StateModifyingData {
             track_data,
         }
     }
+
+    /// Fails if [`scrape_playlist`] fails (used to see how many tracks in the album)
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_without_discogs(youtube_url: String) -> Result<Self, ScrapeYoutubePlaylistError> {
+        scrape_playlist(&music_to_www(&youtube_url)).map(|playlist_data| Self {
+            youtube_url,
+            album_data: AlbumData::default(),
+            track_data: playlist_data.into_iter().map(Into::into).collect(),
+        })
+    }
 }
 
 impl App {
@@ -103,8 +127,6 @@ impl App {
                 .on_input(|s| Message::ModifyDataInputChanged(ModifyDataInputChange::AlbumName(s)));
         let album_artist_input = TextInput::new("Artists", state.album_data.artist.as_str())
             .on_input(|s| Message::ModifyDataInputChanged(ModifyDataInputChange::Artist(s)));
-        let album_label_input = TextInput::new("Label", state.album_data.label.as_str())
-            .on_input(|s| Message::ModifyDataInputChanged(ModifyDataInputChange::Label(s)));
         let album_date_input = TextInput::new("Date", &format!("{}", state.album_data.year))
             .on_input(|s| Message::ModifyDataInputChanged(ModifyDataInputChange::Year(s)));
         let album_genre_input = TextInput::new("Genre", state.album_data.genre.as_str())
@@ -115,7 +137,6 @@ impl App {
             Rule::horizontal(4),
             album_name_input,
             album_artist_input,
-            album_label_input,
             album_date_input,
             album_genre_input,
             Rule::horizontal(4)

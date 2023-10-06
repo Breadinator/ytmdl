@@ -14,7 +14,6 @@ pub enum Message {
 pub enum ModifyDataInputChange {
     AlbumName(String),
     Artist(String),
-    Label(String),
     Genre(String),
     Year(String),
     Tracks { index: usize, value: String },

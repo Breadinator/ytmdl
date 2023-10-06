@@ -40,6 +40,6 @@ cargo install --git https://github.com/Breadinator/ytmdl
 
 ## Todo
 - [x] ~~Automatically get the specific Discogs release page from the master page if provided~~
-- [ ] If it fails to scrape discogs, just procede with empty data
+- [x] ~~If it fails to scrape discogs, just procede with empty data~~
 - [ ] Scrape Discogs for data on specific songs (e.g. composers)
 - [ ] Scrape the full album date (not in the JSON block currently parsed but is present on the site)

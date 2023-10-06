@@ -1,6 +1,7 @@
 use std::{borrow::Cow, ffi::OsStr};
 
 use reqwest::blocking::{Client, Response};
+use url::Url;
 
 /// If all given results are `Ok`, returns `Ok(vec![ok_values])`,
 /// else it returns the first error in the `Vec`
@@ -103,4 +104,31 @@ pub mod selectors {
     selector!(SPAN, "span");
     selector!(VERSIONS_TABLE_LINK, "section#versions table a.link_1ctor");
     selector!(SCRIPT, "script");
+}
+
+#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+#[must_use]
+pub fn current_year() -> i32 {
+    const SECONDS_PER_YEAR: f64 = 365.25 * 24.0 * 60.0 * 60.0;
+
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(2023, |since_epoch| {
+            (since_epoch.as_secs_f64() / SECONDS_PER_YEAR) as i32 + 1970
+        })
+}
+
+#[must_use]
+pub fn music_to_www(url: &str) -> Cow<str> {
+    if let Ok(mut parsed_url) = Url::parse(url) {
+        if parsed_url.host_str() != Some("www.youtube.com")
+            && parsed_url.set_host(Some("www.youtube.com")).is_ok()
+        {
+            Cow::Owned(parsed_url.to_string())
+        } else {
+            Cow::Borrowed(url)
+        }
+    } else {
+        Cow::Borrowed(url)
+    }
 }

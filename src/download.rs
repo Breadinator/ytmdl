@@ -1,7 +1,7 @@
 use crate::{
     gui::view_modifying_data::StateModifyingData,
     scraping::{scrape_playlist, scrape_youtube},
-    utils::{sanitize_file_name, SendableRawPointer},
+    utils::{music_to_www, sanitize_file_name, SendableRawPointer},
 };
 use bytes::Bytes;
 use id3::{
@@ -10,7 +10,6 @@ use id3::{
 };
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::{
-    borrow::Cow,
     env, fs,
     path::{Path, PathBuf},
     process::Command,
@@ -18,7 +17,6 @@ use std::{
 };
 use tempdir::TempDir;
 use thiserror::Error;
-use url::Url;
 
 #[derive(Debug, Error)]
 pub enum DownloadError {
@@ -125,17 +123,6 @@ fn handle_track(
 }
 
 fn get_ids(url: &str) -> Result<Vec<String>, DownloadError> {
-    fn music_to_www(url: &str) -> Cow<str> {
-        if let Ok(mut parsed_url) = Url::parse(url) {
-            if parsed_url.host_str() == Some("music") && parsed_url.set_host(Some("www")).is_ok() {
-                Cow::Owned(parsed_url.to_string())
-            } else {
-                Cow::Borrowed(url)
-            }
-        } else {
-            Cow::Borrowed(url)
-        }
-    }
     let url = music_to_www(url);
 
     log::debug!("scraping album data from YouTube...");

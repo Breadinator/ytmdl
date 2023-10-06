@@ -4,7 +4,7 @@ use serde_json::Value;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum ScrapeYoutubePlaylist {
+pub enum ScrapeYoutubePlaylistError {
     #[error("{0}")]
     ReqwestError(#[from] reqwest::Error),
     #[error("selector parse error")]
@@ -67,7 +67,7 @@ fn extract_playlist_item(extracted_json: &Value) -> PlaylistItem {
 /// # Errors
 /// - If it can't actually download the request (via [reqwest])
 /// - If it can't find a valid script tag (whose contents should be `var ytInitialData = <...>;` where `<...>` is valid JSON)
-pub fn scrape_playlist(url: &str) -> Result<Vec<PlaylistItem>, ScrapeYoutubePlaylist> {
+pub fn scrape_playlist(url: &str) -> Result<Vec<PlaylistItem>, ScrapeYoutubePlaylistError> {
     let resp = download(url)?.text()?;
     let doc = Html::parse_document(resp.as_str());
 
@@ -91,7 +91,7 @@ pub fn scrape_playlist(url: &str) -> Result<Vec<PlaylistItem>, ScrapeYoutubePlay
         }
     }
 
-    Err(ScrapeYoutubePlaylist::MissingScript)
+    Err(ScrapeYoutubePlaylistError::MissingScript)
 }
 
 #[cfg(test)]

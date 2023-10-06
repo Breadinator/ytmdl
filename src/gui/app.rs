@@ -57,14 +57,19 @@ impl Application for App {
                 Ok(scraped_discogs) => {
                     *self = Self::ModifyingData(StateModifyingData::new(youtube, &scraped_discogs));
                 }
-                Err(err) => log::error!("{err}"),
+                Err(err) => {
+                    log::warn!("{err}");
+                    match StateModifyingData::new_without_discogs(youtube) {
+                        Ok(new_state) => *self = Self::ModifyingData(new_state),
+                        Err(err) => log::error!("{err}"),
+                    }
+                }
             },
             Message::ModifyDataInputChanged(change) => {
                 if let App::ModifyingData(data) = self {
                     match change {
                         ModifyDataInputChange::AlbumName(s) => data.album_data.name = s,
                         ModifyDataInputChange::Artist(s) => data.album_data.artist = s,
-                        ModifyDataInputChange::Label(s) => data.album_data.label = s,
                         ModifyDataInputChange::Genre(s) => data.album_data.genre = s,
                         ModifyDataInputChange::Year(s) => {
                             if let Ok(y) = s.parse() {
