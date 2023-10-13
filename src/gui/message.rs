@@ -17,4 +17,5 @@ pub enum ModifyDataInputChange {
     Genre(String),
     Year(String),
     Tracks { index: usize, value: String },
+    Image(String),
 }

@@ -116,7 +116,7 @@ fn handle_track(
 
     // set id3 tags
     let tag = generate_tags(state, i, img, content_type);
-    tag.write_to_path(tmp_file_path.as_path(), id3::Version::Id3v24)?;
+    tag.write_to_path(&tmp_file_path, id3::Version::Id3v24)?;
 
     // copy to out dir
     move_to_out_dir(i, state, &tmp_file_path, out_dir)
@@ -130,7 +130,7 @@ fn get_ids(url: &str) -> Result<Vec<String>, DownloadError> {
         Ok(scraped_playlist) => {
             let mut out = Vec::with_capacity(scraped_playlist.len());
             let mut ok = true;
-            for track in scraped_playlist {
+            for track in scraped_playlist.tracks {
                 if let Some(id) = track.id {
                     out.push(id);
                 } else {

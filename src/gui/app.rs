@@ -79,6 +79,7 @@ impl Application for App {
                         ModifyDataInputChange::Tracks { index, value } => {
                             data.track_data[index].name = value;
                         }
+                        ModifyDataInputChange::Image(s) => data.album_data.image = s,
                     }
                 } else {
                     log::warn!(

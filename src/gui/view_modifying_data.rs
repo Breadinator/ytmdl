@@ -108,8 +108,12 @@ impl StateModifyingData {
     pub fn new_without_discogs(youtube_url: String) -> Result<Self, ScrapeYoutubePlaylistError> {
         scrape_playlist(&music_to_www(&youtube_url)).map(|playlist_data| Self {
             youtube_url,
-            album_data: AlbumData::default(),
-            track_data: playlist_data.into_iter().map(Into::into).collect(),
+            album_data: AlbumData {
+                name: playlist_data.title,
+                artist: playlist_data.artist,
+                ..AlbumData::default()
+            },
+            track_data: playlist_data.tracks.into_iter().map(Into::into).collect(),
         })
     }
 }
@@ -125,12 +129,14 @@ impl App {
         let album_name_input: TextInput<'_, Message> =
             TextInput::new("Album name", state.album_data.name.as_str())
                 .on_input(|s| Message::ModifyDataInputChanged(ModifyDataInputChange::AlbumName(s)));
-        let album_artist_input = TextInput::new("Artists", state.album_data.artist.as_str())
+        let album_artist_input = TextInput::new("Artists", &state.album_data.artist)
             .on_input(|s| Message::ModifyDataInputChanged(ModifyDataInputChange::Artist(s)));
         let album_date_input = TextInput::new("Date", &format!("{}", state.album_data.year))
             .on_input(|s| Message::ModifyDataInputChanged(ModifyDataInputChange::Year(s)));
-        let album_genre_input = TextInput::new("Genre", state.album_data.genre.as_str())
+        let album_genre_input = TextInput::new("Genre", &state.album_data.genre)
             .on_input(|s| Message::ModifyDataInputChanged(ModifyDataInputChange::Genre(s)));
+        let album_cover_url_input = TextInput::new("Album Cover URL", &state.album_data.image)
+            .on_input(|s| Message::ModifyDataInputChanged(ModifyDataInputChange::Image(s)));
 
         let mut content: Column<'_, Message> = column![
             download_button,
@@ -139,6 +145,7 @@ impl App {
             album_artist_input,
             album_date_input,
             album_genre_input,
+            album_cover_url_input,
             Rule::horizontal(4)
         ]
         .spacing(20)
