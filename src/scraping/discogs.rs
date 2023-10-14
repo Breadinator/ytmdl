@@ -62,7 +62,7 @@ pub struct DiscogsReleaseOf {
     #[serde(rename = "@type")]
     pub r#type: String,
     #[serde(rename = "@id")]
-    pub id: String,
+    pub id: Option<String>,
     pub name: String,
     #[serde(rename = "datePublished")]
     pub date_published: i32,

@@ -1,10 +1,12 @@
 use super::{App, Message, ModifyDataInputChange};
 use crate::{
     scraping::{
-        scrape_playlist, DiscogsAlbum, DiscogsAlbumData, PlaylistItem, ScrapeYoutubePlaylistError,
+        scrape_playlist, DiscogsAlbum, DiscogsAlbumData, DiscogsTrack, PlaylistItem,
+        ScrapeYoutubePlaylistError,
     },
     utils::music_to_www,
 };
+use html_escape::decode_html_entities;
 use iced::{
     widget::{column, container, scrollable, Button, Column, Rule, TextInput},
     Element, Length,
@@ -43,25 +45,38 @@ pub struct TrackData {
     pub name: String,
 }
 
+impl TrackData {
+    #[must_use]
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: decode_html_entities(name).to_string(),
+        }
+    }
+}
+
+impl From<&DiscogsTrack> for TrackData {
+    fn from(value: &DiscogsTrack) -> Self {
+        Self::new(&value.title)
+    }
+}
+
 impl From<PlaylistItem> for TrackData {
     fn from(value: PlaylistItem) -> Self {
-        Self {
-            name: value.title.unwrap_or_default(),
-        }
+        Self::new(&value.title.unwrap_or_default())
     }
 }
 
 impl From<&DiscogsAlbumData> for AlbumData {
     fn from(discogs_album_data: &DiscogsAlbumData) -> Self {
         AlbumData {
-            name: discogs_album_data.name.clone(),
+            name: decode_html_entities(&discogs_album_data.name).to_string(),
             artist: discogs_album_data.release_of.by_artist.iter().fold(
                 String::new(),
                 |acc, artist| {
                     if acc.is_empty() {
-                        artist.name.clone()
+                        decode_html_entities(&artist.name).to_string()
                     } else {
-                        acc + "; " + &artist.name
+                        acc + "; " + &decode_html_entities(&artist.name)
                     }
                 },
             ),
@@ -88,9 +103,7 @@ impl StateModifyingData {
         let mut track_data = Vec::with_capacity(scraped_discogs.tracks.len());
         for track in &scraped_discogs.tracks {
             if let Some(track) = track {
-                track_data.push(TrackData {
-                    name: track.title.clone(),
-                });
+                track_data.push(TrackData::from(track));
             } else {
                 log::error!("failed to parse track");
             }
