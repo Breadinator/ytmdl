@@ -1,6 +1,5 @@
-use std::{borrow::Cow, ffi::OsStr};
-
 use reqwest::blocking::{Client, Response};
+use std::{borrow::Cow, ffi::OsStr};
 use url::Url;
 
 /// If all given results are `Ok`, returns `Ok(vec![ok_values])`,
@@ -104,6 +103,7 @@ pub mod selectors {
     selector!(SPAN, "span");
     selector!(VERSIONS_TABLE_LINK, "section#versions table a.link_1ctor");
     selector!(SCRIPT, "script");
+    selector!(TIME, "time");
 }
 
 #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]

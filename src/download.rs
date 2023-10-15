@@ -9,6 +9,7 @@ use id3::{
     Tag, TagLike,
 };
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
+use reqwest::header::{HeaderValue, CONTENT_TYPE};
 use std::{
     env, fs,
     path::{Path, PathBuf},
@@ -66,16 +67,20 @@ pub fn download_album(state: &StateModifyingData) -> Result<(), DownloadError> {
             .collect::<Vec<_>>()
             .into_par_iter()
             .filter_map(|(i, id)| {
-                handle_track(
-                    state,
-                    i,
-                    num_tracks,
-                    id,
-                    tmp_dir,
-                    out_dir,
-                    img,
-                    content_type,
-                )
+                // SAFETY: none of the raw pointers sent here will be invalidated because all the
+                // tasks are joined before the memory is deallocated
+                unsafe {
+                    handle_track(
+                        state,
+                        i,
+                        num_tracks,
+                        id,
+                        tmp_dir,
+                        out_dir,
+                        img,
+                        content_type,
+                    )
+                }
                 .err()
             })
             .collect()
@@ -90,8 +95,12 @@ pub fn download_album(state: &StateModifyingData) -> Result<(), DownloadError> {
     }
 }
 
+/// This downloads the file, sets its id3 tags, moves it to correct dir
+///
+/// # Safety
+/// The arguments passed as [`SendableRawPointer`]s must be valid for the duration of the function.
 #[allow(clippy::too_many_arguments, clippy::needless_pass_by_value)]
-fn handle_track(
+unsafe fn handle_track(
     state: SendableRawPointer<StateModifyingData>,
     i: usize,
     num_tracks: usize,
@@ -101,11 +110,13 @@ fn handle_track(
     img: Option<SendableRawPointer<[u8]>>,
     content_type: Option<SendableRawPointer<str>>,
 ) -> Result<(), DownloadError> {
-    let state = unsafe { state.get() };
-    let tmp_dir = unsafe { tmp_dir.get() };
-    let out_dir = unsafe { out_dir.get() };
-    let img = unsafe { img.as_ref().map(|i| i.get()) };
-    let content_type = unsafe { content_type.as_ref().map(|ct| ct.get()) };
+    // SAFETY: these .get calls aren't guaranteed to be safe
+    let state = state.get();
+    let tmp_dir = tmp_dir.get();
+    let out_dir = out_dir.get();
+    let img = img.as_ref().map(|i| i.get());
+    let content_type = content_type.as_ref().map(|ct| ct.get());
+    // SAFETY: everything after here should be safe (assuming the above are valid)
 
     // download from youtube
     let path = generate_path_name(i, num_tracks, &id, tmp_dir)?;
@@ -157,8 +168,9 @@ fn get_image(state: &StateModifyingData) -> (Option<Bytes>, Option<String>) {
         Ok(resp) => {
             content_type = resp
                 .headers()
-                .get(reqwest::header::CONTENT_TYPE)
-                .and_then(|a| a.to_str().ok())
+                .get(CONTENT_TYPE)
+                .map(HeaderValue::to_str)
+                .and_then(Result::ok)
                 .map(String::from);
             img = resp.bytes().ok();
         }
@@ -270,7 +282,11 @@ fn generate_tags(
     let mut tag = Tag::new();
     tag.set_album(&state.album_data.name);
     tag.set_year(state.album_data.year);
+    if let Some(dr) = state.album_data.released {
+        tag.set_date_released(dr);
+    }
     tag.set_track((i + 1) as u32);
+    tag.set_total_tracks(state.track_data.len() as u32);
     tag.set_artist(&state.album_data.artist);
     tag.set_genre(&state.album_data.genre);
     tag.set_title(&state.track_data[i].name);

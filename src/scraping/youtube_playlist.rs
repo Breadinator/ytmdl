@@ -129,7 +129,7 @@ fn extract_artist(json: &Value) -> &str {
 /// - If it can't find a valid script tag (whose contents should be `var ytInitialData = <...>;` where `<...>` is valid JSON)
 pub fn scrape_playlist(url: &str) -> Result<Playlist, ScrapeYoutubePlaylistError> {
     let resp = download(url)?.text()?;
-    let doc = Html::parse_document(resp.as_str());
+    let doc = Html::parse_document(&resp);
 
     for script in doc.select(&SCRIPT) {
         let inner = script.inner_html();

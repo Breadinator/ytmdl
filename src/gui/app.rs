@@ -30,7 +30,7 @@ impl Application for App {
     }
 
     fn title(&self) -> String {
-        String::from("ytmdl")
+        "ytmdl".into()
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {

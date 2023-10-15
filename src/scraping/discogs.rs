@@ -1,9 +1,10 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, str::FromStr};
 
 use crate::utils::{
     download,
-    selectors::{RELEASE_SCHEMA, SPAN, TD, TRACKLIST, VERSIONS_TABLE_LINK},
+    selectors::{RELEASE_SCHEMA, SPAN, TD, TIME, TRACKLIST, VERSIONS_TABLE_LINK},
 };
+use id3::Timestamp;
 use scraper::{html::Select, Html};
 use serde::Deserialize;
 use thiserror::Error;
@@ -20,6 +21,7 @@ pub struct DiscogsTrack {
 pub struct DiscogsAlbum {
     pub album_data: DiscogsAlbumData,
     pub tracks: Vec<Option<DiscogsTrack>>,
+    pub released: Option<Timestamp>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -137,8 +139,13 @@ pub fn scrape_discogs(url: &str) -> Result<DiscogsAlbum, DiscogsScrapeError> {
 
     let album_data = parse_release_schema(&document)?;
     let tracks = parse_tracks(&document);
+    let released = parse_released(&document);
 
-    Ok(DiscogsAlbum { album_data, tracks })
+    Ok(DiscogsAlbum {
+        album_data,
+        tracks,
+        released,
+    })
 }
 
 fn parse_release_schema(document: &Html) -> Result<DiscogsAlbumData, DiscogsScrapeError> {
@@ -171,6 +178,16 @@ fn parse_tracks(document: &Html) -> Vec<Option<DiscogsTrack>> {
         .collect()
 }
 
+fn parse_released(document: &Html) -> Option<Timestamp> {
+    document
+        .select(&TIME)
+        .next()?
+        .value()
+        .attr("datetime")
+        .map(FromStr::from_str)
+        .and_then(Result::ok)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -184,17 +201,17 @@ mod tests {
         // test album data
         assert_eq!(album.album_data.name.as_str(), "Version Up");
         assert_eq!(
-            album.album_data.genre.as_slice(),
-            &[String::from("Electronic"), String::from("Pop")]
+            &album.album_data.genre,
+            &["Electronic".to_string(), "Pop".to_string()]
         );
         assert_eq!(
-            album.album_data.description.unwrap().as_str(),
+            &album.album_data.description.unwrap(),
             "Album title stylized as &amp;quot;ODD EYE CIRCLE &amp;lt;Version Up&amp;gt;.&amp;quot;" // idk what this escaping is lol
         );
         assert_eq!(album.album_data.date_published, 2023);
-        assert_eq!(album.album_data.record_label[0].name.as_str(), "Modhaus");
+        assert_eq!(&album.album_data.record_label[0].name, "Modhaus");
         assert_eq!(
-            album.album_data.release_of.by_artist[0].name.as_str(),
+            &album.album_data.release_of.by_artist[0].name,
             "ODD EYE CIRCLE"
         );
         assert!(album.album_data.image.starts_with("https://i.discogs.com/"));

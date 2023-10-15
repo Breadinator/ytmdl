@@ -1,6 +1,6 @@
 [package]
 name = "ytmdl"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 repository = "https://github.com/Breadinator/ytmdl"
 description = "Downloads albums from YouTube and automatically fills them with metadata from Discogs"

@@ -1,8 +1,7 @@
 use super::{App, Message, ModifyDataInputChange};
 use crate::{
     scraping::{
-        scrape_playlist, DiscogsAlbum, DiscogsAlbumData, DiscogsTrack, PlaylistItem,
-        ScrapeYoutubePlaylistError,
+        scrape_playlist, DiscogsAlbum, DiscogsTrack, PlaylistItem, ScrapeYoutubePlaylistError,
     },
     utils::music_to_www,
 };
@@ -11,6 +10,7 @@ use iced::{
     widget::{column, container, scrollable, Button, Column, Rule, TextInput},
     Element, Length,
 };
+use id3::Timestamp;
 
 #[derive(Debug, Clone, Default)]
 pub struct StateModifyingData {
@@ -26,6 +26,7 @@ pub struct AlbumData {
     pub genre: String,
     pub year: i32,
     pub image: String,
+    pub released: Option<Timestamp>,
 }
 
 impl Default for AlbumData {
@@ -36,6 +37,7 @@ impl Default for AlbumData {
             genre: String::new(),
             year: crate::utils::current_year(),
             image: String::new(),
+            released: None,
         }
     }
 }
@@ -66,21 +68,24 @@ impl From<PlaylistItem> for TrackData {
     }
 }
 
-impl From<&DiscogsAlbumData> for AlbumData {
-    fn from(discogs_album_data: &DiscogsAlbumData) -> Self {
+impl From<&DiscogsAlbum> for AlbumData {
+    fn from(discogs_album_data: &DiscogsAlbum) -> Self {
         AlbumData {
-            name: decode_html_entities(&discogs_album_data.name).to_string(),
-            artist: discogs_album_data.release_of.by_artist.iter().fold(
-                String::new(),
-                |acc, artist| {
+            name: decode_html_entities(&discogs_album_data.album_data.name).to_string(),
+            artist: discogs_album_data
+                .album_data
+                .release_of
+                .by_artist
+                .iter()
+                .fold(String::new(), |acc, artist| {
                     if acc.is_empty() {
                         decode_html_entities(&artist.name).to_string()
                     } else {
                         acc + "; " + &decode_html_entities(&artist.name)
                     }
-                },
-            ),
+                }),
             genre: discogs_album_data
+                .album_data
                 .genre
                 .iter()
                 .fold(String::new(), |acc, genre| {
@@ -90,8 +95,9 @@ impl From<&DiscogsAlbumData> for AlbumData {
                         acc + "; " + &genre
                     }
                 }),
-            year: discogs_album_data.date_published,
-            image: discogs_album_data.image.clone(),
+            year: discogs_album_data.album_data.date_published,
+            image: discogs_album_data.album_data.image.clone(),
+            released: discogs_album_data.released,
         }
     }
 }
@@ -99,7 +105,7 @@ impl From<&DiscogsAlbumData> for AlbumData {
 impl StateModifyingData {
     #[must_use]
     pub fn new(youtube_url: String, scraped_discogs: &DiscogsAlbum) -> Self {
-        let album_data = AlbumData::from(&scraped_discogs.album_data);
+        let album_data = AlbumData::from(scraped_discogs);
         let mut track_data = Vec::with_capacity(scraped_discogs.tracks.len());
         for track in &scraped_discogs.tracks {
             if let Some(track) = track {
