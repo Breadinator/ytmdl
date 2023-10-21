@@ -84,7 +84,7 @@ fn extract_playlist_item(extracted_json: &Value) -> PlaylistItem {
 
 fn extract_title(json: &Value) -> &str {
     fn remove_title_noise(raw_title: &str) -> &str {
-        raw_title.strip_prefix("Album –").unwrap_or(raw_title)
+        raw_title.strip_prefix("Album – ").unwrap_or(raw_title)
     }
 
     fn extract_title_opt(json: &Value) -> Option<&str> {
